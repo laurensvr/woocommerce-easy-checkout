@@ -26,6 +26,7 @@ use function add_filter;
 use function current_user_can;
 use function deactivate_plugins;
 use function esc_html__;
+use function get_user_meta;
 use function is_plugin_active;
 use function is_user_logged_in;
 use function plugin_basename;
@@ -55,7 +56,7 @@ final class Plugin
         }
 
         add_filter('woocommerce_checkout_fields', [self::class, 'filter_checkout_fields'], 20);
-        add_action('woocommerce_checkout_process', [self::class, 'enforce_customer_email']);
+        add_action('woocommerce_checkout_process', [self::class, 'enforce_customer_contact_details']);
     }
 
     public static function on_activation(): void
@@ -116,8 +117,11 @@ final class Plugin
                     continue;
                 }
 
-                if ('billing_email' === $key) {
-                    $fields['billing'][$key]['required'] = true;
+                if ('billing_email' === $key || 'billing_phone' === $key) {
+                    if ('billing_email' === $key) {
+                        $fields['billing'][$key]['required'] = true;
+                    }
+
                     $fields['billing'][$key]['custom_attributes'] = self::merge_custom_attributes(
                         $field['custom_attributes'] ?? [],
                         ['readonly' => 'readonly']
@@ -138,17 +142,13 @@ final class Plugin
             $fields['shipping'] = [];
         }
 
-        if (isset($fields['order']['order_comments'])) {
-            unset($fields['order']['order_comments']);
-        }
-
         return $fields;
     }
 
     /**
-     * Ensures the stored customer email is used during checkout for logged-in users.
+     * Ensures stored customer contact details are used during checkout for logged-in users.
      */
-    public static function enforce_customer_email(): void
+    public static function enforce_customer_contact_details(): void
     {
         if (! is_user_logged_in()) {
             return;
@@ -162,11 +162,15 @@ final class Plugin
 
         $email = (string) $user->user_email;
 
-        if ('' === $email) {
-            return;
+        if ('' !== $email) {
+            $_POST['billing_email'] = $email; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         }
 
-        $_POST['billing_email'] = $email; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        $phone = (string) get_user_meta($user->ID, 'billing_phone', true);
+
+        if ('' !== $phone) {
+            $_POST['billing_phone'] = $phone; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        }
     }
 
     /**

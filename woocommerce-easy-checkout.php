@@ -56,6 +56,7 @@ final class Plugin
         }
 
         add_filter('woocommerce_checkout_fields', [self::class, 'filter_checkout_fields'], 20);
+        add_filter('woocommerce_checkout_get_value', [self::class, 'prime_checkout_field_values'], 20, 2);
         add_action('woocommerce_checkout_process', [self::class, 'enforce_customer_contact_details']);
     }
 
@@ -166,10 +167,95 @@ final class Plugin
             $_POST['billing_email'] = $email; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         }
 
+        $first_name = (string) get_user_meta($user->ID, 'billing_first_name', true);
+
+        if (
+            '' !== $first_name
+            && (! isset($_POST['billing_first_name']) || '' === (string) $_POST['billing_first_name'])
+        ) {
+            $_POST['billing_first_name'] = $first_name; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        }
+
+        $last_name = (string) get_user_meta($user->ID, 'billing_last_name', true);
+
+        if (
+            '' !== $last_name
+            && (! isset($_POST['billing_last_name']) || '' === (string) $_POST['billing_last_name'])
+        ) {
+            $_POST['billing_last_name'] = $last_name; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        }
+
         $phone = (string) get_user_meta($user->ID, 'billing_phone', true);
 
         if ('' !== $phone) {
             $_POST['billing_phone'] = $phone; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        }
+    }
+
+    /**
+     * Primes the checkout field values with the customer's stored profile details.
+     */
+    public static function prime_checkout_field_values(?string $value, string $input): ?string
+    {
+        if (! is_user_logged_in()) {
+            return $value;
+        }
+
+        $user = wp_get_current_user();
+
+        if (! $user instanceof WP_User) {
+            return $value;
+        }
+
+        switch ($input) {
+            case 'billing_email':
+                return (string) $user->user_email;
+            case 'billing_phone':
+                $stored_phone = (string) get_user_meta($user->ID, 'billing_phone', true);
+
+                if ('' !== $stored_phone) {
+                    return $stored_phone;
+                }
+
+                return $value;
+            case 'billing_first_name':
+                if ('' !== (string) $value) {
+                    return $value;
+                }
+
+                $stored_first_name = (string) get_user_meta($user->ID, 'billing_first_name', true);
+
+                if ('' !== $stored_first_name) {
+                    return $stored_first_name;
+                }
+
+                $profile_first_name = (string) get_user_meta($user->ID, 'first_name', true);
+
+                if ('' !== $profile_first_name) {
+                    return $profile_first_name;
+                }
+
+                return $value;
+            case 'billing_last_name':
+                if ('' !== (string) $value) {
+                    return $value;
+                }
+
+                $stored_last_name = (string) get_user_meta($user->ID, 'billing_last_name', true);
+
+                if ('' !== $stored_last_name) {
+                    return $stored_last_name;
+                }
+
+                $profile_last_name = (string) get_user_meta($user->ID, 'last_name', true);
+
+                if ('' !== $profile_last_name) {
+                    return $profile_last_name;
+                }
+
+                return $value;
+            default:
+                return $value;
         }
     }
 

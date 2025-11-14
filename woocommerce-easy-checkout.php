@@ -10,7 +10,7 @@
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: woocommerce-easy-checkout
  * Requires at least: 6.8
- * Requires PHP: 8.4
+ * Requires PHP: 8.3
  * WC requires at least: 8.0
  * WC tested up to: 10.3
  */
